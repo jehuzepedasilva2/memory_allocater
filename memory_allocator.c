@@ -1,9 +1,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
-//=================== CONSTANTS ==========================
+//======== CONSTANTS, PROTOTYPES, GLOBAL VARIABLES ========
+
+// NOTE TO SELF: If you're going to refrence the same struct within the struct, must add a name
+typedef struct AvailableNode {
+    int key_block_size;
+    int val_block_start;
+    struct AvailableNode* left;
+    struct AvailableNode* right;
+} AvailableNode;
+
 int MEMORY_SIZE = 1000;
+char* memory;
+AvailableNode* free_blocks = NULL;
+
+// for tree structure
+AvailableNode* put_block(AvailableNode* node, int key_size, int val_start);
+AvailableNode* find_block_helper(AvailableNode* node, int key_size, int* min_diff, AvailableNode* result);
+AvailableNode* delete_block(AvailableNode* node, int key_size, int val_start);
+AvailableNode* get_inorder_succesor(AvailableNode* node);
+// for debugging
+void print_available_helper(AvailableNode* node, const char* prefix, int is_left);
+void print_available_tree(AvailableNode* node);
+
+// for main allocator program
+int init_program();
+int init_memory();
+void list();
+
 /*
 =================== TREE DATA STRUCTURE ==================
 This will keep track of the free memory blocks keyed by size [block_size, block_size]:
@@ -14,21 +41,6 @@ This will keep track of the free memory blocks keyed by size [block_size, block_
 [2, 0] [6, 2]
 For brevity I will keep the tree BST unbalanced, could add it later
 */
-
-// NOTE TO SELF: If you're going to refrence the same struct within the struct, must add a name
-typedef struct AvailableNode {
-    int key_block_size;
-    int val_block_start;
-    struct AvailableNode* left;
-    struct AvailableNode* right;
-} AvailableNode;
-
-AvailableNode* put_block(AvailableNode* node, int key_size, int val_start);
-AvailableNode* find_block(AvailableNode* node, int key_size, int* min_diff, AvailableNode* result);
-AvailableNode* delete_block(AvailableNode* node, int key_size, int val_start);
-AvailableNode* get_inorder_succesor(AvailableNode* node);
-// for debugging
-void print_available_tree(AvailableNode* node, const char* prefix, int is_left);
 
 AvailableNode* put_block(AvailableNode* node, int key_size, int val_start) {
     if (node == NULL) {
@@ -49,14 +61,14 @@ AvailableNode* put_block(AvailableNode* node, int key_size, int val_start) {
     return node;
 }
 
-AvailableNode* find_block(AvailableNode* node, int key_size, int* min_diff, AvailableNode* result) {
+AvailableNode* find_block_helper(AvailableNode* node, int key_size, int* min_diff, AvailableNode* result) {
     // if we found nothing, means there are no free blocks >= size we want
     if (node == NULL) {
         return result;
     }
     // we search right if the current node size is smaller
     if (node->key_block_size < key_size) {
-        return find_block(node->right, key_size, min_diff, result);
+        return find_block_helper(node->right, key_size, min_diff, result);
     } 
     // search left otherwise, and find the closest thing
     int current_diff = node->key_block_size - key_size;
@@ -64,7 +76,12 @@ AvailableNode* find_block(AvailableNode* node, int key_size, int* min_diff, Avai
         *min_diff = current_diff;
         result = node;
     }
-    return find_block(node->left, key_size, min_diff, result);
+    return find_block_helper(node->left, key_size, min_diff, result);
+}
+
+AvailableNode* find_block(AvailableNode* node, int key_size) {
+    int min_diff = INT_MAX;
+    return find_block_helper(node, key_size, &min_diff, NULL);
 }
 
 /*
@@ -133,7 +150,7 @@ AvailableNode* get_inorder_succesor(AvailableNode* node) {
 }
 
 // ------------------- FOR DEBUGGING -----------------------
-void print_available_tree(AvailableNode* node, const char* prefix, int is_left) {
+void print_available_helper(AvailableNode* node, const char* prefix, int is_left) {
     if (node == NULL) {
         return;
     }
@@ -143,7 +160,7 @@ void print_available_tree(AvailableNode* node, const char* prefix, int is_left) 
     // print right subtree
     if (node->right != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "│   " : "    ");
-        print_available_tree(node->right, new_prefix, 0);
+        print_available_helper(node->right, new_prefix, 0);
     }
 
     // print current node
@@ -152,19 +169,17 @@ void print_available_tree(AvailableNode* node, const char* prefix, int is_left) 
     // print left subtree
     if (node->left != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "    " : "│   ");
-        print_available_tree(node->left, new_prefix, 1);
+        print_available_helper(node->left, new_prefix, 1);
     }
+}
+
+void print_available_tree(AvailableNode* node) {
+    print_available_helper(node, "", 1);
 }
 
 /*
 =================== MAIN PROGRAM =======================
 */
-int init_program();
-int init_memory();
-void list();
-
-char* memory;
-AvailableNode* free_blocks = NULL;
 
 int main() {
     init_program();
@@ -200,7 +215,7 @@ int init_program() {
         if (user_choice == 1) {
             list();
         } else if (user_choice == 990) {
-            print_available_tree(free_blocks, "", 1);
+            print_available_tree(free_blocks);
         }
     }
 
