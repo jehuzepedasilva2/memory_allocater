@@ -4,7 +4,6 @@
 
 //=================== CONSTANTS ==========================
 int MEMORY_SIZE = 1000;
-
 /*
 =================== TREE DATA STRUCTURE ==================
 This will keep track of the free memory blocks keyed by size [block_size, block_size]:
@@ -28,8 +27,7 @@ AvailableNode* put_block(AvailableNode* node, int key_size, int val_start);
 AvailableNode* find_block(AvailableNode* node, int key_size, int* min_diff, AvailableNode* result);
 AvailableNode* delete_block(AvailableNode* node, int key_size, int val_start);
 AvailableNode* get_inorder_succesor(AvailableNode* node);
-AvailableNode* balance_tree(AvailableNode* node);
-AvailableNode** level_order_traversal(AvailableNode* node, int* out_length, int max_nodes);
+void pretty_print_helper(AvailableNode* node, const char* prefix, int is_left);
 
 AvailableNode* put_block(AvailableNode* node, int key_size, int val_start) {
     if (node == NULL) {
@@ -58,15 +56,14 @@ AvailableNode* find_block(AvailableNode* node, int key_size, int* min_diff, Avai
     // we search right if the current node size is smaller
     if (node->key_block_size < key_size) {
         return find_block(node->right, key_size, min_diff, result);
-    // search left otherwise, and find teh closest thing
-    } else if (node->key_block_size >= key_size) {
-        int current_diff = node->key_block_size - key_size;
-        if (current_diff < *min_diff) {
-            *min_diff = current_diff;
-            result = node;
-        }
-        return find_block(node->left, key_size, min_diff, result);
     } 
+    // search left otherwise, and find the closest thing
+    int current_diff = node->key_block_size - key_size;
+    if (current_diff < *min_diff) {
+        *min_diff = current_diff;
+        result = node;
+    }
+    return find_block(node->left, key_size, min_diff, result);
 }
 
 /*
@@ -132,6 +129,29 @@ AvailableNode* get_inorder_succesor(AvailableNode* node) {
         return node;
     }
     return get_inorder_succesor(node->left);
+}
+
+void pretty_print_helper (AvailableNode* node, const char* prefix, int is_left) {
+    if (node == NULL) {
+        return;
+    }
+
+    char new_prefix[256];
+
+    // print right subtree
+    if (node->right != NULL) {
+        snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "│   " : "    ");
+        pretty_print_helper(node->right, new_prefix, 0);
+    }
+
+    // print current node
+    printf("%s%s(%d, %d)\n", prefix, is_left ? "└── " : "┌── ", node->key_block_size, node->val_block_start);
+
+    // print left subtree
+    if (node->left != NULL) {
+        snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "    " : "│   ");
+        pretty_print_helper(node->left, new_prefix, 1);
+    }
 }
 
 /*
