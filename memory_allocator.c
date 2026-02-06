@@ -28,7 +28,7 @@ AvailableNode* find_block(AvailableNode* node, int key_size, int* min_diff, Avai
 AvailableNode* delete_block(AvailableNode* node, int key_size, int val_start);
 AvailableNode* get_inorder_succesor(AvailableNode* node);
 // for debugging
-void pretty_print_tree(AvailableNode* node, const char* prefix, int is_left);
+void print_available_tree(AvailableNode* node, const char* prefix, int is_left);
 
 AvailableNode* put_block(AvailableNode* node, int key_size, int val_start) {
     if (node == NULL) {
@@ -133,7 +133,7 @@ AvailableNode* get_inorder_succesor(AvailableNode* node) {
 }
 
 // ------------------- FOR DEBUGGING -----------------------
-void pretty_print_tree(AvailableNode* node, const char* prefix, int is_left) {
+void print_available_tree(AvailableNode* node, const char* prefix, int is_left) {
     if (node == NULL) {
         return;
     }
@@ -143,7 +143,7 @@ void pretty_print_tree(AvailableNode* node, const char* prefix, int is_left) {
     // print right subtree
     if (node->right != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "│   " : "    ");
-        pretty_print_tree(node->right, new_prefix, 0);
+        print_available_tree(node->right, new_prefix, 0);
     }
 
     // print current node
@@ -152,7 +152,7 @@ void pretty_print_tree(AvailableNode* node, const char* prefix, int is_left) {
     // print left subtree
     if (node->left != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "    " : "│   ");
-        pretty_print_tree(node->left, new_prefix, 1);
+        print_available_tree(node->left, new_prefix, 1);
     }
 }
 
@@ -200,7 +200,7 @@ int init_program() {
         if (user_choice == 1) {
             list();
         } else if (user_choice == 990) {
-            pretty_print_tree(free_blocks, "", 1);
+            print_available_tree(free_blocks, "", 1);
         }
     }
 
