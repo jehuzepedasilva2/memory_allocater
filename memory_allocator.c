@@ -25,21 +25,21 @@ AvailableNode* get_inorder_succesor(AvailableNode* node);
 // for debugging
 void print_available_helper(AvailableNode* node, const char* prefix, int is_left);
 void print_available_tree(AvailableNode* node);
-
+void print_tree_block(int block_size);
 // for main allocator program
 int init_program();
 int init_memory();
 void list();
 
+//=================== TREE DATA STRUCTURE ==================
 /*
-=================== TREE DATA STRUCTURE ==================
-This will keep track of the free memory blocks keyed by size [block_size, block_size]:
-        [8, 2]
-        /    \
-    [3, 5]  [10, 10]
-    /   \
-[2, 0] [6, 2]
-For brevity I will keep the tree BST unbalanced, could add it later
+    This will keep track of the free memory blocks keyed by size [block_size, block_size]:
+            [8, 2]
+            /    \
+        [3, 5]  [10, 10]
+        /   \
+    [2, 0] [6, 2]
+    For brevity I will keep the tree BST unbalanced, could add it later
 */
 
 AvailableNode* put_block(AvailableNode* node, int key_size, int val_start) {
@@ -149,7 +149,7 @@ AvailableNode* get_inorder_succesor(AvailableNode* node) {
     return get_inorder_succesor(node->left);
 }
 
-// ------------------- FOR DEBUGGING -----------------------
+// ------------------- FOR DEBUGGING TREE ------------------
 void print_available_helper(AvailableNode* node, const char* prefix, int is_left) {
     if (node == NULL) {
         return;
@@ -157,16 +157,13 @@ void print_available_helper(AvailableNode* node, const char* prefix, int is_left
 
     char new_prefix[256];
 
-    // print right subtree
     if (node->right != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "│   " : "    ");
         print_available_helper(node->right, new_prefix, 0);
     }
 
-    // print current node
     printf("%s%s(%d, %d)\n", prefix, is_left ? "└── " : "┌── ", node->key_block_size, node->val_block_start);
 
-    // print left subtree
     if (node->left != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "    " : "│   ");
         print_available_helper(node->left, new_prefix, 1);
@@ -175,6 +172,11 @@ void print_available_helper(AvailableNode* node, const char* prefix, int is_left
 
 void print_available_tree(AvailableNode* node) {
     print_available_helper(node, "", 1);
+}
+
+void print_tree_block(int block_size) {
+    AvailableNode* node = find_block(free_blocks, block_size);
+    printf("block_size:%d, block_start: %d\n\n", node->key_block_size, node->val_block_start);
 }
 
 /*
@@ -216,6 +218,8 @@ int init_program() {
             list();
         } else if (user_choice == 990) {
             print_available_tree(free_blocks);
+        } else if (user_choice == 991) {
+            print_tree_block(100);
         }
     }
 
