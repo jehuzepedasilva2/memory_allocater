@@ -70,7 +70,7 @@ Unallocated* find_block_helper(Unallocated* node, int key_size, int* min_diff, U
     if (node->key_block_size < key_size) {
         return find_block_helper(node->right, key_size, min_diff, result);
     } 
-    // search left otherwise, and find the closest thing
+    // if node->key_block_size >= key_size search left, keeping track of the closest to key_size
     int current_diff = node->key_block_size - key_size;
     if (current_diff < *min_diff) {
         *min_diff = current_diff;
