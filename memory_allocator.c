@@ -27,6 +27,7 @@ AvailableNode* put_block(AvailableNode* node, int key_size, int val_start);
 AvailableNode* find_block(AvailableNode* node, int key_size, int* min_diff, AvailableNode* result);
 AvailableNode* delete_block(AvailableNode* node, int key_size, int val_start);
 AvailableNode* get_inorder_succesor(AvailableNode* node);
+// for debugging
 void pretty_print_helper(AvailableNode* node, const char* prefix, int is_left);
 
 AvailableNode* put_block(AvailableNode* node, int key_size, int val_start) {
@@ -131,6 +132,7 @@ AvailableNode* get_inorder_succesor(AvailableNode* node) {
     return get_inorder_succesor(node->left);
 }
 
+// ------------------- FOR DEBUGGING -----------------------
 void pretty_print_helper (AvailableNode* node, const char* prefix, int is_left) {
     if (node == NULL) {
         return;
@@ -157,9 +159,53 @@ void pretty_print_helper (AvailableNode* node, const char* prefix, int is_left) 
 /*
 =================== MAIN PROGRAM =======================
 */
- AvailableNode* free_blocks = NULL;
+int init_program();
+int init_memory();
+void list();
+
+char* memory;
+AvailableNode* free_blocks = NULL;
 
 int main() {
-    free_blocks = put_block(free_blocks, MEMORY_SIZE, 0);
+    init_program();
     return 0;
+}
+
+int init_memory() {
+    memory = malloc(sizeof(char) * MEMORY_SIZE);
+    if (memory == NULL) {
+        return 0;
+    }
+    memset(memory, '0', MEMORY_SIZE);
+    // initialize the tree
+    free_blocks = put_block(free_blocks, MEMORY_SIZE, 0);
+    return 1;
+}
+
+int init_program() {
+    int memory_status = init_memory();
+    if (memory_status == 0) {
+        printf("Something went wrong allocating main memory\n");      
+    }
+
+    int user_choice = 0;
+
+    while (user_choice != 4) {
+        printf("Select one of following:\n");
+        printf("[1] LIST\n[2] ALLOCATE\n[3] DEALLOCATE\n[4] EXIT\n");
+        printf("> ");
+        scanf("%d", &user_choice);
+        printf("\n");
+
+        if (user_choice == 1) {
+            list();
+        }
+    }
+
+    return 1;
+}
+
+void list() {
+    printf("Memory layout: [F = free, A = allocated]\n");
+    printf("\n\n");
 }
