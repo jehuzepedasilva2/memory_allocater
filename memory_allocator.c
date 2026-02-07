@@ -301,27 +301,6 @@ void list() {
     printf("\n\n");
 }
 
-
-// void list() {
-//     printf("Memory layout: [F = free, A = allocated]\n");
-//     int end = 0;
-//     while (end < MEMORY_SIZE) {
-//         int start = end;
-//         if (*(memory + end) != -1) {
-//             while (end < MEMORY_SIZE && *(memory + end) != -1) {
-//                 end++;
-//             }
-//             printf("[A:%d-%d]", start, end-1);
-//         } else {
-//             while (end < MEMORY_SIZE && *(memory + end) == -1) {
-//                 end++;
-//             }
-//             printf("[F:%d-%d]", start, end-1);
-//         }
-//     }
-//     printf("\n\n");
-// }
-
 /*
     alloc: allocates N bytes of contiguous space if available 
         args: int n
