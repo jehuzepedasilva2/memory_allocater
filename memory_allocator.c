@@ -8,8 +8,8 @@
 // Node for tree data structure
 typedef struct Unallocated {
     // NOTE TO SELF: If you're going to refrence the same struct within the struct, must add a name
-    int key_block_size;
-    int val_block_start;
+    int key; // will be block size
+    int val; // will be block start
     struct Unallocated* left;
     struct Unallocated* right;
 } Unallocated;
@@ -19,9 +19,9 @@ int* memory;
 Unallocated* unallocated_blocks = NULL;
 
 // for tree structure
-Unallocated* put_block(Unallocated* node, int key_size, int val_start);
-Unallocated* find_block_helper(Unallocated* node, int key_size, int* min_diff, Unallocated* result);
-Unallocated* delete_block(Unallocated* node, int key_size, int val_start);
+Unallocated* put_block(Unallocated* node, int key, int val);
+Unallocated* find_block_helper(Unallocated* node, int key, int* min_diff, Unallocated* result);
+Unallocated* delete_block(Unallocated* node, int key, int val);
 Unallocated* get_inorder_succesor(Unallocated* node);
 void print_available_helper(Unallocated* node, const char* prefix, int is_left);
 void print_available_tree(Unallocated* node);
@@ -53,11 +53,11 @@ Unallocated* put_block(Unallocated* node, int key, int val) {
         if (new_node == NULL) {
             return NULL;
         }
-        new_node->key_block_size = key;
-        new_node->val_block_start = val;
+        new_node->key = key;
+        new_node->val = val;
         return new_node;
     }
-    if (key <= node->key_block_size) {
+    if (key <= node->key) {
         node->left = put_block(node->left, key, val);
     } else {
         node->right = put_block(node->right, key, val);
@@ -71,11 +71,11 @@ Unallocated* find_block_helper(Unallocated* node, int key, int* min_diff, Unallo
         return result;
     }
     // we search right if the current node size is smaller
-    if (node->key_block_size < key) {
+    if (node->key < key) {
         return find_block_helper(node->right, key, min_diff, result);
     } 
-    // if node->key_block_size >= key search left, keeping track of the closest to key
-    int current_diff = node->key_block_size - key;
+    // if node->key >= key search left, keeping track of the closest to key
+    int current_diff = node->key - key;
     if (current_diff < *min_diff) {
         *min_diff = current_diff;
         result = node;
@@ -110,7 +110,7 @@ Unallocated* delete_block(Unallocated* node, int key, int val) {
         return NULL;
     }
     // once we find the node:
-    if (node->key_block_size == key && node->val_block_start == val) {
+    if (node->key == key && node->val == val) {
         // case 2:
         if (node->left == NULL && node->right == NULL) {
             // free memory and return null
@@ -130,13 +130,13 @@ Unallocated* delete_block(Unallocated* node, int key, int val) {
             // find the inorder succesor, and replace with this one
             // inorder succesor is the leftmost child of the right subtree
             Unallocated* inorder_succesor = get_inorder_succesor(node->right);
-            node->key_block_size = inorder_succesor->key_block_size;
-            node->val_block_start = inorder_succesor->val_block_start;
-            node->right = delete_block(node->right, inorder_succesor->key_block_size, inorder_succesor->val_block_start);
+            node->key = inorder_succesor->key;
+            node->val = inorder_succesor->val;
+            node->right = delete_block(node->right, inorder_succesor->key, inorder_succesor->val);
         }
 
     // if current node is smaller than size we want go right
-    } else if (node->key_block_size < key) {
+    } else if (node->key < key) {
         node->right = delete_block(node->right, key, val);
     // otherwise search for it in the right tree
     } else {
@@ -188,7 +188,7 @@ void print_available_helper(Unallocated* node, const char* prefix, int is_left) 
         print_available_helper(node->right, new_prefix, 0);
     }
 
-    printf("%s%s(size:%d, start:%d)\n", prefix, is_left ? "└── " : "┌── ", node->key_block_size, node->val_block_start);
+    printf("%s%s(size:%d, start:%d)\n", prefix, is_left ? "└── " : "┌── ", node->key, node->val);
 
     if (node->left != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "    " : "│   ");
@@ -202,7 +202,7 @@ void print_available_tree(Unallocated* node) {
 
 void print_tree_block(int block_size) {
     Unallocated* node = find_block(unallocated_blocks, block_size);
-    printf("block_size:%d, block_start: %d\n\n", node->key_block_size, node->val_block_start);
+    printf("block_size:%d, block_start: %d\n\n", node->key, node->val);
 }
 
 /*
@@ -327,7 +327,7 @@ int* alloc(int n) {
     if (block == NULL) {
         return NULL;
     }
-    int size = block->key_block_size, start = block->val_block_start; 
+    int size = block->key, start = block->val; 
     // create a new node, and add to the tree
     int leftover_block_size = size - n;
     int leftover_block_start = start + n;
