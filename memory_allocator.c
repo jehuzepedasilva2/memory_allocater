@@ -31,7 +31,7 @@ int init_program();
 int init_memory();
 void list();
 int* alloc(int n);
-void print_literal();
+void print_list_literal();
 int encode_block(int start, int length);
 void decode_block(int value, int* start, int* length);
 int dealloc(int start_byte);
@@ -231,6 +231,7 @@ int init_program() {
                 printf("\nSuccessfully allocated!\nstart byte: %d, end byte: %d\n\n", *status, *(status+1));
                 free(status);
             }
+
         } else if (user_choice == 3) {
             int start_byte;
 			printf("Enter the start byte (must be the start of a block):\n> ");
@@ -243,15 +244,15 @@ int init_program() {
 			} else {
 				printf("Sucess!\nThe block starting at %d was deallocated\n\n", start_byte);
 			}
+
         } else if (user_choice == 990) {
             print_available_tree(unallocated_blocks);
             printf("\n");
         } else if (user_choice == 991) {
-            print_literal();
+            print_list_literal();
             printf("\n");
         }
     }
-
     return 1;
 }
 
@@ -311,10 +312,8 @@ int* alloc(int n) {
     if (leftover_block_size > 0) {
         unallocated_blocks = put_block(unallocated_blocks, leftover_block_size, leftover_block_start);
     }
-
     // delete the old node and update root
     unallocated_blocks = delete_block(unallocated_blocks, size, start);
-
     // update memory array
     *(memory + start) = encode_block(start, n);
     for (int i = start+1; i < start + n; i++) {
@@ -334,7 +333,7 @@ int* alloc(int n) {
                 (ok) otherwise
     
     When this is called, get the start byte and length, change the memory to reflect the changes and put
-    back into the tree
+    back into the tree. For space optimilaty we can merge adjacent blocks
 */
 int dealloc(int start_byte) {
     // since the start byte of a block will never directly store the start byte, 
@@ -346,15 +345,12 @@ int dealloc(int start_byte) {
     int start, size;
     int value = *(memory + start_byte);
     decode_block(value, &start, &size);
-    
     // change memory
     for (int i = start; i < start + size; i++) {
         *(memory + i) = -1;
     }
-
     // add back into the tree
-    unallocated_blocks = put_block(unallocated_blocks, size, start);
-    
+    unallocated_blocks = put_block(unallocated_blocks, size, start);    
     return 0;
 }
 
@@ -364,21 +360,19 @@ int dealloc(int start_byte) {
     this encodes the start bytes with the high 16 bits storing the length and the lower 16 bits storing the start
     Example with start = 2 length = 3:
         memory is 0x0000 0000 (32-bits/4-bytes for an int)
-        3 << 16 => 0x0003 0000
-  
+        3 << 16 => 0x0003 0000 (shift 16 bits to the left)
+
         start: 00000000 00000000 00000000 00000010
-        0xFFFF:00000000 00000000 11111111 11111111
-        -------------------------------------------
+        0xFFFF:00000000 00000000 11111111 11111111 & (and)
         result:00000000 00000000 00000000 00000010
         2 & 0xFFFF => 0x0000 0002
 
         start & 0xFFFF: 00000000 00000000 00000000 00000010
-        length << 16:   00000011 00000000 00000000 00000000
-        ---------------------------------------------------
-       reulst:          00000011 00000000 00000000 00000010
+        length << 16:   00000011 00000000 00000000 00000000 | (or)
+        result:         00000011 00000000 00000000 00000010
        (length << 16) | (start & 0xFFFF) = 0x0003 0002
     
-    NOTE: Should be okay as long as start and length don't exeed 16 bits, 
+    NOTE: Should be okay as long as start/length don't exeed 16 bits, 
     or are larger than 2^16 = 65536 (okay for this project)
 */
 int encode_block(int start_byte, int size) {
@@ -389,12 +383,10 @@ int encode_block(int start_byte, int size) {
 void decode_block(int value, int* start_byte, int* size) {
     *size = (value >> 16) & 0xFFFF;
     *start_byte  = value & 0xFFFF;
-    // for debugging
-    // printf("start=%d, length=%d\n", start, length);
 }
 
 // ------------------- FOR DEBUGGING MEMORY ------------------
-void print_literal() {
+void print_list_literal() {
     for (int i = 0; i < MEMORY_SIZE; i++) {
         printf("| %d", *(memory + i));
     }
