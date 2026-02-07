@@ -347,6 +347,9 @@ int dealloc(int start_byte) {
         ---------------------------------------------------
        reulst:          00000011 00000000 00000000 00000010
        (length << 16) | (start & 0xFFFF) = 0x0003 0002
+    
+    NOTE: Should be okay as long as start and length don't exeed 16 bits, 
+    or are larger than 2^16 = 65536 (okay for this project)
 */
 int encode_block(int start, int length) {
     return (length << 16) | (start & 0xFFFF);
