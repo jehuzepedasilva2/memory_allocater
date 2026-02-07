@@ -13,7 +13,7 @@ typedef struct Unallocated {
     struct Unallocated* right;
 } Unallocated;
 
-int MEMORY_SIZE = 1000;
+int MEMORY_SIZE = 10;
 char* memory;
 Unallocated* unallocated_blocks = NULL;
 
@@ -30,6 +30,7 @@ void print_tree_block(int block_size);
 int init_program();
 int init_memory();
 void list();
+int alloc(int n);
 
 //=================== TREE DATA STRUCTURE ==================
 /*
@@ -191,17 +192,17 @@ int main() {
 int init_memory() {
     memory = malloc(sizeof(char) * MEMORY_SIZE);
     if (memory == NULL) {
-        return 0;
+        return 1;
     }
     memset(memory, '0', MEMORY_SIZE);
     // initialize the tree
     unallocated_blocks = put_block(unallocated_blocks, MEMORY_SIZE, 0);
-    return 1;
+    return 0;
 }
 
 int init_program() {
     int memory_status = init_memory();
-    if (memory_status == 0) {
+    if (memory_status == 1) {
         printf("Something went wrong allocating main memory\n");      
     }
 
@@ -209,13 +210,18 @@ int init_program() {
 
     while (user_choice != 4) {
         printf("Select one of following:\n");
-        printf("[1] LIST\n[2] ALLOCATE\n[3] DEALLOCATE\n[4] EXIT\n");
-        printf("> ");
+        printf("[1] LIST\n[2] ALLOCATE\n[3] DEALLOCATE\n[4] EXIT\n> ");
         scanf("%d", &user_choice);
         printf("\n");
 
         if (user_choice == 1) {
             list();
+        } else if (user_choice == 2) {
+            printf("Enter the number of bytes to allocate\n> ");
+            int n;
+            scanf("%d", &n);
+
+            int status = alloc(n);
         } else if (user_choice == 990) {
             print_available_tree(unallocated_blocks);
         } else if (user_choice == 991) {
@@ -228,5 +234,34 @@ int init_program() {
 
 void list() {
     printf("Memory layout: [F = free, A = allocated]\n");
+    int end = 0;
+    while (end < MEMORY_SIZE) {
+        int start = end;
+        if (*(memory + end) == '1') {
+            while (end < MEMORY_SIZE && *(memory + end) == '1') {
+                end++;
+            }
+            printf("[A:%d-%d]", start, end-1);
+        } else {
+            while (end < MEMORY_SIZE && *(memory + end) == '0') {
+                end++;
+            }
+            printf("[F:%d-%d]", start, end-1);
+        }
+    }
     printf("\n\n");
+}
+
+int alloc(int n) {
+    if (n > MEMORY_SIZE || n < 1) {
+        return 1;
+    }
+    if (*(memory + n) == '1') {
+        return 2;
+    }
+    // find a block that fits
+    Unallocated* block = find_block(unallocated_blocks, n);
+    int block_size = block->key_block_size;
+    int start_byte = block->val_block_start;
+
 }
