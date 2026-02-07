@@ -6,26 +6,28 @@
 //======== CONSTANTS, PROTOTYPES, GLOBAL VARIABLES ========
 
 // Node for tree data structure
-typedef struct Unallocated {
-    // NOTE TO SELF: If you're going to refrence the same struct within the struct, must add a name
-    int key; // will be block size
-    int val; // will be block start
-    struct Unallocated* left;
-    struct Unallocated* right;
-} Unallocated;
+// NOTE TO SELF: If you're going to refrence the same struct within the struct, must add a name
+typedef struct Node {
+    int key;
+    int val; 
+    struct Node* left;
+    struct Node* right;
+} Node;
 
 int MEMORY_SIZE = 10;
 int* memory;
-Unallocated* unallocated_blocks = NULL;
+// key: block size, val: block start
+Node* unallocated_blocks = NULL; 
+// key: block start, val: block size
+Node* block_starts = NULL;
 
 // for tree structure
-Unallocated* put_block(Unallocated* node, int key, int val);
-Unallocated* find_block_helper(Unallocated* node, int key, int* min_diff, Unallocated* result);
-Unallocated* delete_block(Unallocated* node, int key, int val);
-Unallocated* get_inorder_succesor(Unallocated* node);
-void print_available_helper(Unallocated* node, const char* prefix, int is_left);
-void print_available_tree(Unallocated* node);
-void print_tree_block(int block_size);
+Node* put_block(Node* node, int key, int val);
+Node* find_block_helper(Node* node, int key, int* min_diff, Node* result);
+Node* delete_block(Node* node, int key, int val);
+Node* get_inorder_succesor(Node* node);
+void print_tree_helper(Node* node, const char* prefix, int is_left);
+void print_tree(Node* node);
 // for main allocator program
 int init_program();
 int init_memory();
@@ -38,6 +40,7 @@ int dealloc(int start_byte);
 
 //=================== TREE DATA STRUCTURE ==================
 /*
+    Node tree: 
     This will keep track of the free memory blocks keyed by size [block_size, block_size]:
             [8, 2]
             /    \
@@ -45,11 +48,14 @@ int dealloc(int start_byte);
         /   \
     [2, 0] [6, 2]
     For brevity I will keep the tree BST unbalanced, could add it later
+
+    Starts:
+    Similar to the tree above, but it will tree ordered by block starts.
 */
 
-Unallocated* put_block(Unallocated* node, int key, int val) {
+Node* put_block(Node* node, int key, int val) {
     if (node == NULL) {
-        Unallocated* new_node = malloc(sizeof(Unallocated));
+        Node* new_node = malloc(sizeof(Node));
         if (new_node == NULL) {
             return NULL;
         }
@@ -65,7 +71,7 @@ Unallocated* put_block(Unallocated* node, int key, int val) {
     return node;
 }
 
-Unallocated* find_block_helper(Unallocated* node, int key, int* min_diff, Unallocated* result) {
+Node* find_block_helper(Node* node, int key, int* min_diff, Node* result) {
     // if we found nothing, means there are no free blocks >= size we want
     if (node == NULL) {
         return result;
@@ -83,7 +89,7 @@ Unallocated* find_block_helper(Unallocated* node, int key, int* min_diff, Unallo
     return find_block_helper(node->left, key, min_diff, result);
 }
 
-Unallocated* find_block(Unallocated* node, int key_size) {
+Node* find_block(Node* node, int key_size) {
     int min_diff = INT_MAX;
     return find_block_helper(node, key_size, &min_diff, NULL);
 }
@@ -104,7 +110,7 @@ Unallocated* find_block(Unallocated* node, int key_size) {
     4. Node has two children (trickiest)
         - Replace node with inorder successor, and delete that node recursively
 */
-Unallocated* delete_block(Unallocated* node, int key, int val) {
+Node* delete_block(Node* node, int key, int val) {
     // case 1:
     if (node == NULL) {
         return NULL;
@@ -118,18 +124,18 @@ Unallocated* delete_block(Unallocated* node, int key, int val) {
             return NULL;
         // case 3:
         } else if (node->left == NULL) {
-            Unallocated* right_node = node->right;
+            Node* right_node = node->right;
             free(node);
             return right_node;
         } else if (node->right == NULL) {
-            Unallocated* left_node = node->left;
+            Node* left_node = node->left;
             free(node);
             return left_node;
         // case 4
         } else {
             // find the inorder succesor, and replace with this one
             // inorder succesor is the leftmost child of the right subtree
-            Unallocated* inorder_succesor = get_inorder_succesor(node->right);
+            Node* inorder_succesor = get_inorder_succesor(node->right);
             node->key = inorder_succesor->key;
             node->val = inorder_succesor->val;
             node->right = delete_block(node->right, inorder_succesor->key, inorder_succesor->val);
@@ -146,7 +152,7 @@ Unallocated* delete_block(Unallocated* node, int key, int val) {
 }
 
 // go left all way
-Unallocated* get_inorder_succesor(Unallocated* node) {
+Node* get_inorder_succesor(Node* node) {
     if (node->left == NULL) {
         return node;
     }
@@ -160,7 +166,7 @@ Unallocated* get_inorder_succesor(Unallocated* node) {
                 /             \
         (size:2, start:3) (size:3, start:0)
 
-        Memory (size 10) for tree above (U = unallocated, A = allocated)
+        Memory (size 10) for tree above (U = Node, A = allocated)
         bytes:    0  1  2   3  4   5  6  7   8  9
         memory:  [U][U][U] [U][U] [A][A][A] [U][U]
         With this tree, if we wanted a block of size 5, we wouldn't be able to get bytes 0-5 
@@ -176,7 +182,7 @@ Unallocated* get_inorder_succesor(Unallocated* node) {
 */
 
 // ------------------- FOR DEBUGGING TREE ------------------
-void print_available_helper(Unallocated* node, const char* prefix, int is_left) {
+void print_tree_helper(Node* node, const char* prefix, int is_left) {
     if (node == NULL) {
         return;
     }
@@ -185,24 +191,19 @@ void print_available_helper(Unallocated* node, const char* prefix, int is_left) 
 
     if (node->right != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "│   " : "    ");
-        print_available_helper(node->right, new_prefix, 0);
+        print_tree_helper(node->right, new_prefix, 0);
     }
 
-    printf("%s%s(size:%d, start:%d)\n", prefix, is_left ? "└── " : "┌── ", node->key, node->val);
+    printf("%s%s(%d, %d)\n", prefix, is_left ? "└── " : "┌── ", node->key, node->val);
 
     if (node->left != NULL) {
         snprintf(new_prefix, sizeof(new_prefix), "%s%s", prefix, is_left ? "    " : "│   ");
-        print_available_helper(node->left, new_prefix, 1);
+        print_tree_helper(node->left, new_prefix, 1);
     }
 }
 
-void print_available_tree(Unallocated* node) {
-    print_available_helper(node, "", 1);
-}
-
-void print_tree_block(int block_size) {
-    Unallocated* node = find_block(unallocated_blocks, block_size);
-    printf("block_size:%d, block_start: %d\n\n", node->key, node->val);
+void print_tree(Node* node) {
+    print_tree_helper(node, "", 1);
 }
 
 /*
@@ -222,6 +223,7 @@ int init_memory() {
     memset(memory, -1, MEMORY_SIZE * sizeof(int));
     // initialize the tree
     unallocated_blocks = put_block(unallocated_blocks, MEMORY_SIZE, 0);
+    block_starts = put_block(block_starts, 0, MEMORY_SIZE);
     return 0;
 }
 
@@ -268,9 +270,12 @@ int init_program() {
 			}
 
         } else if (user_choice == 990) {
-            print_available_tree(unallocated_blocks);
+            print_tree(unallocated_blocks);
             printf("\n");
         } else if (user_choice == 991) {
+            print_tree(block_starts);
+            printf("\n");
+        } else if (user_choice == 992) {
             print_list_literal();
             printf("\n");
         }
@@ -279,24 +284,43 @@ int init_program() {
 }
 
 void list() {
+    int i = 0;
     printf("Memory layout: [F = free, A = allocated]\n");
-    int end = 0;
-    while (end < MEMORY_SIZE) {
-        int start = end;
-        if (*(memory + end) != -1) {
-            while (end < MEMORY_SIZE && *(memory + end) != -1) {
-                end++;
-            }
-            printf("[A:%d-%d]", start, end-1);
+    while (i < MEMORY_SIZE) {
+        if (*(memory + i) == -1) {
+            int start = i;
+            while (i < MEMORY_SIZE && *(memory + i) == -1) i++;
+            printf("[F:%d-%d] ", start, i - 1);
         } else {
-            while (end < MEMORY_SIZE && *(memory + end) == -1) {
-                end++;
-            }
-            printf("[F:%d-%d]", start, end-1);
+            int start, size;
+            decode_block(*(memory + i), &start, &size); 
+            printf("[A:%d-%d] ", start, start + size - 1);
+            i = start + size;
         }
     }
     printf("\n\n");
 }
+
+
+// void list() {
+//     printf("Memory layout: [F = free, A = allocated]\n");
+//     int end = 0;
+//     while (end < MEMORY_SIZE) {
+//         int start = end;
+//         if (*(memory + end) != -1) {
+//             while (end < MEMORY_SIZE && *(memory + end) != -1) {
+//                 end++;
+//             }
+//             printf("[A:%d-%d]", start, end-1);
+//         } else {
+//             while (end < MEMORY_SIZE && *(memory + end) == -1) {
+//                 end++;
+//             }
+//             printf("[F:%d-%d]", start, end-1);
+//         }
+//     }
+//     printf("\n\n");
+// }
 
 /*
     alloc: allocates N bytes of contiguous space if available 
@@ -323,19 +347,22 @@ int* alloc(int n) {
         return NULL;
     }
     // find a block that fits
-    Unallocated* block = find_block(unallocated_blocks, n);
+    Node* block = find_block(unallocated_blocks, n);
     if (block == NULL) {
         return NULL;
     }
     int size = block->key, start = block->val; 
+    Node* block_a = find_block(block_starts, start);
     // create a new node, and add to the tree
     int leftover_block_size = size - n;
     int leftover_block_start = start + n;
     if (leftover_block_size > 0) {
         unallocated_blocks = put_block(unallocated_blocks, leftover_block_size, leftover_block_start);
+        block_starts = put_block(block_starts, leftover_block_start, leftover_block_size);
     }
     // delete the old node and update root
     unallocated_blocks = delete_block(unallocated_blocks, size, start);
+    block_starts = delete_block(block_starts, start, size);
     // update memory array
     *(memory + start) = encode_block(start, n);
     for (int i = start+1; i < start + n; i++) {
@@ -372,7 +399,8 @@ int dealloc(int start_byte) {
         *(memory + i) = -1;
     }
     // add back into the tree
-    unallocated_blocks = put_block(unallocated_blocks, size, start);    
+    unallocated_blocks = put_block(unallocated_blocks, size, start);  
+    block_starts = put_block(block_starts, start, size);  
     return 0;
 }
 
