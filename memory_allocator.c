@@ -5,8 +5,9 @@
 
 //======== CONSTANTS, PROTOTYPES, GLOBAL VARIABLES ========
 
-// NOTE TO SELF: If you're going to refrence the same struct within the struct, must add a name
+// Node for tree data structure
 typedef struct Unallocated {
+    // NOTE TO SELF: If you're going to refrence the same struct within the struct, must add a name
     int key_block_size;
     int val_block_start;
     struct Unallocated* left;
@@ -328,6 +329,7 @@ int dealloc(int start_byte) {
 }
 
 // ------------------- HELPERS -------------------------------
+
 /*
     this encodes the start bytes with the high 16 bits storing the length and the lower 16 bits storing the start
     Example with start = 2 length = 3:
