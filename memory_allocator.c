@@ -47,40 +47,40 @@ int dealloc(int start_byte);
     For brevity I will keep the tree BST unbalanced, could add it later
 */
 
-Unallocated* put_block(Unallocated* node, int key_size, int val_start) {
+Unallocated* put_block(Unallocated* node, int key, int val) {
     if (node == NULL) {
         Unallocated* new_node = malloc(sizeof(Unallocated));
         if (new_node == NULL) {
             return NULL;
         }
-        new_node->key_block_size = key_size;
-        new_node->val_block_start = val_start;
+        new_node->key_block_size = key;
+        new_node->val_block_start = val;
         return new_node;
     }
-    if (key_size <= node->key_block_size) {
-        node->left = put_block(node->left, key_size, val_start);
+    if (key <= node->key_block_size) {
+        node->left = put_block(node->left, key, val);
     } else {
-        node->right = put_block(node->right, key_size, val_start);
+        node->right = put_block(node->right, key, val);
     }
     return node;
 }
 
-Unallocated* find_block_helper(Unallocated* node, int key_size, int* min_diff, Unallocated* result) {
+Unallocated* find_block_helper(Unallocated* node, int key, int* min_diff, Unallocated* result) {
     // if we found nothing, means there are no free blocks >= size we want
     if (node == NULL) {
         return result;
     }
     // we search right if the current node size is smaller
-    if (node->key_block_size < key_size) {
-        return find_block_helper(node->right, key_size, min_diff, result);
+    if (node->key_block_size < key) {
+        return find_block_helper(node->right, key, min_diff, result);
     } 
-    // if node->key_block_size >= key_size search left, keeping track of the closest to key_size
-    int current_diff = node->key_block_size - key_size;
+    // if node->key_block_size >= key search left, keeping track of the closest to key
+    int current_diff = node->key_block_size - key;
     if (current_diff < *min_diff) {
         *min_diff = current_diff;
         result = node;
     }
-    return find_block_helper(node->left, key_size, min_diff, result);
+    return find_block_helper(node->left, key, min_diff, result);
 }
 
 Unallocated* find_block(Unallocated* node, int key_size) {
@@ -104,13 +104,13 @@ Unallocated* find_block(Unallocated* node, int key_size) {
     4. Node has two children (trickiest)
         - Replace node with inorder successor, and delete that node recursively
 */
-Unallocated* delete_block(Unallocated* node, int key_size, int val_start) {
+Unallocated* delete_block(Unallocated* node, int key, int val) {
     // case 1:
     if (node == NULL) {
         return NULL;
     }
     // once we find the node:
-    if (node->key_block_size == key_size && node->val_block_start == val_start) {
+    if (node->key_block_size == key && node->val_block_start == val) {
         // case 2:
         if (node->left == NULL && node->right == NULL) {
             // free memory and return null
@@ -136,11 +136,11 @@ Unallocated* delete_block(Unallocated* node, int key_size, int val_start) {
         }
 
     // if current node is smaller than size we want go right
-    } else if (node->key_block_size < key_size) {
-        node->right = delete_block(node->right, key_size, val_start);
+    } else if (node->key_block_size < key) {
+        node->right = delete_block(node->right, key, val);
     // otherwise search for it in the right tree
     } else {
-        node->left = delete_block(node->left, key_size, val_start);
+        node->left = delete_block(node->left, key, val);
     }
     return node;
 }
@@ -152,6 +152,28 @@ Unallocated* get_inorder_succesor(Unallocated* node) {
     }
     return get_inorder_succesor(node->left);
 }
+
+/*
+    For space optimilaty we can merge adjacent blocks.
+    Example:
+                (size:2, start:8)
+                /             \
+        (size:2, start:3) (size:3, start:0)
+
+        Memory (size 10) for tree above (U = unallocated, A = allocated)
+        bytes:    0  1  2   3  4   5  6  7   8  9
+        memory:  [U][U][U] [U][U] [A][A][A] [U][U]
+        With this tree, if we wanted a block of size 5, we wouldn't be able to get bytes 0-5 
+        since its not in the tree so we need a function that can merge nodes that can create 
+        a bigger block when merged
+    
+    I need to:
+    1. Identify when nodes are adjacent blocks
+        - compare the start_block1 to the end_block2 of another (end_block2 should be start_block1 + 1)
+        - I can either scan the whole tree or, keep a second tree sorted by start (easiest)?
+    2. Remove the indivual nodes from the tree
+    3. Repeat this process
+*/
 
 // ------------------- FOR DEBUGGING TREE ------------------
 void print_available_helper(Unallocated* node, const char* prefix, int is_left) {
@@ -333,7 +355,7 @@ int* alloc(int n) {
                 (ok) otherwise
     
     When this is called, get the start byte and length, change the memory to reflect the changes and put
-    back into the tree. For space optimilaty we can merge adjacent blocks
+    back into the tree. 
 */
 int dealloc(int start_byte) {
     // since the start byte of a block will never directly store the start byte, 
