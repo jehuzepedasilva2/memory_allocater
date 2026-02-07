@@ -231,6 +231,18 @@ int init_program() {
                 printf("\nSuccessfully allocated!\nstart byte: %d, end byte: %d\n\n", *status, *(status+1));
                 free(status);
             }
+        } else if (user_choice == 3) {
+            int start_byte;
+			printf("Enter the start byte (must be the start of a block):\n> ");
+			scanf("%d", &start_byte);
+			printf("\n");
+			int status = dealloc(start_byte);
+
+			if (status == 1) {
+				printf("byte %d is not the start of a block, byte was never allocated, or out of bounds!\n", start_byte);
+			} else {
+				printf("Sucess!\nThe block starting at %d was deallocated\n\n", start_byte);
+			}
         } else if (user_choice == 990) {
             print_available_tree(unallocated_blocks);
             printf("\n");
@@ -325,6 +337,24 @@ int* alloc(int n) {
     back into the tree
 */
 int dealloc(int start_byte) {
+    // since the start byte of a block will never directly store the start byte, 
+    // if it does, its part of the block, but not the start
+    if (start_byte < 0 || start_byte > MEMORY_SIZE || *(memory + start_byte) == start_byte) {
+        return 1;
+    }
+    // decode the values in start byte
+    int start, size;
+    int value = *(memory + start_byte);
+    decode_block(value, &start, &size);
+    
+    // change memory
+    for (int i = start; i < start + size; i++) {
+        *(memory + i) = -1;
+    }
+
+    // add back into the tree
+    unallocated_blocks = put_block(unallocated_blocks, size, start);
+    
     return 0;
 }
 
@@ -351,14 +381,14 @@ int dealloc(int start_byte) {
     NOTE: Should be okay as long as start and length don't exeed 16 bits, 
     or are larger than 2^16 = 65536 (okay for this project)
 */
-int encode_block(int start, int length) {
-    return (length << 16) | (start & 0xFFFF);
+int encode_block(int start_byte, int size) {
+    return (size << 16) | (start_byte & 0xFFFF);
 }
 
 // reverse what we did
-void decode_block(int value, int* start, int* length) {
-    *length = (value >> 16) & 0xFFFF;
-    *start  = value & 0xFFFF;
+void decode_block(int value, int* start_byte, int* size) {
+    *size = (value >> 16) & 0xFFFF;
+    *start_byte  = value & 0xFFFF;
     // for debugging
     // printf("start=%d, length=%d\n", start, length);
 }
