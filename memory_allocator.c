@@ -14,7 +14,7 @@ typedef struct Node {
     struct Node* right;
 } Node;
 
-int MEMORY_SIZE = 10;
+int MEMORY_SIZE = 1000;
 // key: block size, val: block start
 Node* u_tree_sizes = NULL; 
 // key: block start, val: block size
@@ -40,6 +40,7 @@ int dealloc(int start_byte);
 void exit_program();
 
 //=================== TREE DATA STRUCTURE ==================
+
 /*
     u_tree_sizes tree: 
     Keeps track of the unallocated blocks sorted by size [block_size, block_size]:
@@ -56,7 +57,6 @@ void exit_program();
     a_tree_starts tree:
     Keeps track of all the allocated blocks, sorted by start.
 */
-
 Node* put_block(Node* node, int key, int val) {
     if (node == NULL) {
         Node* new_node = malloc(sizeof(Node));
@@ -188,6 +188,7 @@ Node* get_inorder_succesor(Node* node) {
     3. Repeat this process
 */
 
+// free trees recursively
 void free_tree(Node* node) {
     if (node == NULL) {
         return;
@@ -265,7 +266,7 @@ int init_program() {
 
             int* status = alloc(n);
             if (status == NULL) {
-                printf("\nEnsure number of bytes is < %d and > 0 and that byte %d is not already allocated!\n\n", MEMORY_SIZE, n);
+                printf("\nEnsure number of bytes is greater than 0 and less %d!\n\n", MEMORY_SIZE);
             } else {
                 printf("\nSuccessfully allocated!\nstart byte: %d, end byte: %d\n\n", *status, *(status+1));
                 // free the memory
@@ -279,12 +280,27 @@ int init_program() {
 			int status = dealloc(start_byte);
 
 			if (status == 1) {
-				printf("Byte %d is not the start of a block or was never allocated!\n", start_byte);
+				printf("Byte %d is not the start of a block or was never allocated!\n\n", start_byte);
 			} else if (status == 2) {
-                printf("Outside of memory limits!\n");
+                printf("Outside of memory limits!\n\n");
             } else {
 				printf("Sucess!\nThe block starting at %d was deallocated\n\n", start_byte);
 			}
+        } else if (user_choice == 4) {
+            exit_program();
+        // for debugging trees
+        } else if (user_choice == 5) {
+            printf("Unallocated tree sorted by block sizes:\n");
+            print_tree(u_tree_sizes);
+            printf("\n");
+
+            printf("Unallocated tree sorted by block starts:\n");
+            print_tree(u_tree_starts);
+            printf("\n");
+
+            printf("Allocated tree sorted by block starts:\n");
+            print_tree(a_tree_starts);
+            printf("\n");
         } else if (user_choice == 990) {
             print_tree(u_tree_sizes);
             printf("\n");
@@ -295,7 +311,7 @@ int init_program() {
             print_tree(a_tree_starts);
             printf("\n");
         } else {
-            exit_program();
+            printf("Please enter an option from the menu!\n\n");
         }
     }
     return 1;
