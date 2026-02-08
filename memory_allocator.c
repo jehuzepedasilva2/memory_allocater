@@ -39,7 +39,6 @@ void list_helper(Node* node, int* memory_i);
 int* alloc(int n);
 int dealloc(int start_byte);
 void exit_program();
-void print_suc_pred(Node* successor, Node* predecessor, int start);
 
 //=================== TREE DATA STRUCTURE ==================
 
@@ -437,9 +436,7 @@ int dealloc(int start_byte) {
         return 1;
     }
     int start = allocated_block->key, size = allocated_block->val;
-    // add back into the tree
-    u_tree_sizes = put_block(u_tree_sizes, size, start);  
-    u_tree_starts = put_block(u_tree_starts, start, size);
+    // delete block from allocated
     a_tree_starts = delete_block(a_tree_starts, start, size);  
     // get inorder predecessor and successor from the newly created unallocated block
     Node** result = malloc(sizeof(Node*) * 2);
@@ -450,32 +447,26 @@ int dealloc(int start_byte) {
     // compare new_block with the previous free block
     int merged_start = start;
     int merged_size = size;
-    int is_merged = 0;
     // check predecessor
     if (predecessor != NULL && predecessor->key + predecessor->val == start) {
-        merged_start = predecessor->key;
-        merged_size += predecessor->val;
-        // remove predecessor
-        u_tree_starts = delete_block(u_tree_starts, predecessor->key, predecessor->val);
-        u_tree_sizes = delete_block(u_tree_sizes, predecessor->val, predecessor->key);
-        is_merged = 1;
+        int predecessor_key = predecessor->key, predecessor_val = predecessor->val;
+        merged_start = predecessor_key;
+        merged_size += predecessor_val;
+        // remove predecessor from both u_trees
+        u_tree_starts = delete_block(u_tree_starts, predecessor_key, predecessor_val);
+        u_tree_sizes = delete_block(u_tree_sizes, predecessor_val, predecessor_key);
     }
-    print_tree(u_tree_starts);
     // check successor
     if (successor != NULL && start + size == successor->key) {
-        merged_size += successor->val;
-        // remove successor
-        u_tree_starts = delete_block(u_tree_starts, successor->key, successor->val);
-        u_tree_sizes = delete_block(u_tree_sizes, successor->val, successor->key);
-        is_merged = 1;
+        int successor_key = successor->key, successor_val = successor->val;
+        merged_size += successor_val;
+        // remove successor from both u_trees
+        u_tree_starts = delete_block(u_tree_starts, successor_key, successor_val);
+        u_tree_sizes = delete_block(u_tree_sizes, successor_val, successor_key);
     }
-    print_tree(u_tree_starts);
-    // insert merged node
-    if (is_merged == 1) {
-        u_tree_starts = put_block(u_tree_starts, merged_start, merged_size);
-        u_tree_sizes = put_block(u_tree_sizes, merged_size, merged_start);
-    }
-    print_tree(u_tree_starts);
+    // insert merged node or insert the free block into both u_trees
+    u_tree_starts = put_block(u_tree_starts, merged_start, merged_size);
+    u_tree_sizes = put_block(u_tree_sizes, merged_size, merged_start);
     // free result
     free(result);
     return 0;
@@ -487,8 +478,4 @@ void exit_program() {
     free_tree(u_tree_starts);
     free_tree(a_tree_starts);
     return;
-}
-
-void print_suc_pred(Node* successor, Node* predecessor, int start) {
-    printf("previous: %d, current: %d, next: %d\n", predecessor == NULL ? -1 : predecessor->key, start, successor == NULL ? -1 : successor->key);
 }
