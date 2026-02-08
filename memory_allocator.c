@@ -14,7 +14,7 @@ typedef struct Node {
     struct Node* right;
 } Node;
 
-int MEMORY_SIZE = 1000;
+int MEMORY_SIZE = 10;
 // key: block size, val: block start
 Node* u_tree_sizes = NULL; 
 // key: block start, val: block size
@@ -26,7 +26,8 @@ Node* a_tree_starts = NULL;
 Node* put_block(Node* node, int key, int val);
 Node* find_block_helper(Node* node, int key, int* min_diff, Node* result);
 Node* delete_block(Node* node, int key, int val);
-Node* get_inorder_succesor(Node* node);
+Node* get_succesor_delete(Node* node);
+void get_succesor_predecessor(Node* node, int key, Node** result);
 void free_tree(Node* node);
 void print_tree_helper(Node* node, const char* prefix, int is_left);
 void print_tree(Node* node);
@@ -38,6 +39,7 @@ void list_helper(Node* node, int* memory_i);
 int* alloc(int n);
 int dealloc(int start_byte);
 void exit_program();
+void print_suc_pred(Node* successor, Node* predecessor, int start);
 
 //=================== TREE DATA STRUCTURE ==================
 
@@ -140,8 +142,7 @@ Node* delete_block(Node* node, int key, int val) {
         // case 4
         } else {
             // find the inorder succesor, and replace with this one
-            // inorder succesor is the leftmost child of the right subtree
-            Node* inorder_succesor = get_inorder_succesor(node->right);
+            Node* inorder_succesor = get_succesor_delete(node->right);
             node->key = inorder_succesor->key;
             node->val = inorder_succesor->val;
             node->right = delete_block(node->right, inorder_succesor->key, inorder_succesor->val);
@@ -157,38 +158,30 @@ Node* delete_block(Node* node, int key, int val) {
     return node;
 }
 
-// go left all way
-Node* get_inorder_succesor(Node* node) {
+// inorder succesor is the leftmost child of the right subtree
+Node* get_succesor_delete(Node* node) {
     if (node->left == NULL) {
         return node;
     }
-    return get_inorder_succesor(node->left);
+    return get_succesor_delete(node->left);
 }
 
-/*
-    For space optimilaty we can merge adjacent blocks.
-    Example:
-                (size:2, start:8)
-                /             \
-        (size:2, start:3) (size:3, start:0)
+void get_succesor_predecessor(Node* node, int key, Node** result) {
+    if (node == NULL) {
+        return;
+    }
+    if (key > node->key) {
+        *(result + 1) = node;
+        get_succesor_predecessor(node->right, key, result);
+    } else if (key < node->key) {
+        *result = node;
+        get_succesor_predecessor(node->left, key, result);
+    } else {
+        return;
+    }
+}
 
-        Memory (size 10) for tree above (U = Node, A = allocated)
-        bytes:    0  1  2   3  4   5  6  7   8  9
-        memory:  [U][U][U] [U][U] [A][A][A] [U][U]
-        With this tree, if we wanted a block of size 5, we wouldn't be able to get bytes 0-5 
-        since its not in the tree so we need a function that can merge nodes that can create 
-        a bigger block when merged
-    
-    I need to:
-    1. Identify when nodes are adjacent blocks
-        - compare the start_block1 to the end_block2 of another (end_block2 should be start_block1 + 1)
-        - I can either scan the whole tree or, keep a second tree sorted by start (easiest)? 
-          (decided on keeping a second tree)
-    2. Remove the indivual nodes from the tree
-    3. Repeat this process
-*/
-
-// free trees recursively
+// free trees recursively with a post order traversal
 void free_tree(Node* node) {
     if (node == NULL) {
         return;
@@ -368,9 +361,9 @@ void list_helper(Node* node, int* memory_i) {
         - call alloc(3) => gets the [10, 0] block
         - calculate leftover byest and create a new node => [7, 3]
           (lefover node starts at previous nodes start + n, size is previous size - n)
-        - delete the old node, and free it from memory
+        - delete the old node
         - add the leftover block back to the tree
-        - update the memory array
+        - update allocated tree
 */
 int* alloc(int n) {
       if (n < 1 || n > MEMORY_SIZE) {
@@ -409,6 +402,31 @@ int* alloc(int n) {
                 (ok) otherwise
     
     When this is called, get the start byte and length from a_tree_starts
+
+    For space optimilaty we can merge adjacent blocks.
+    Example:
+                (start:8, size:2)
+                /          
+         (start:0, size:3)
+                    \
+                (start:3, size:2)
+
+        Memory (size 10) for tree above (U = Node, A = allocated)
+        bytes:    0  1  2   3  4   5  6  7   8  9
+        memory:  [U][U][U] [U][U] [A][A][A] [U][U]
+        With this tree, if we wanted a block of size 5, we wouldn't be able to get bytes 0-5 
+        since its not in the tree so we need a function that can merge nodes that can create 
+        a bigger block when merged
+
+        - create a third tree where the nodes are sorted by start bytes.
+        - when something is deallocated;
+            1. create the node for that block
+            2. insert back into the u_trees and delete from a_tree
+            3. find the newly inserted blocks inorder predecessor and successor and check that:
+                - predecessors_start + predecessors_size == new_block_start (previous unallocated block is adjacent)
+                - new_block_start + size == successors_start (next unallocated block is adjcent)
+                - we can then merge and create a new node with (predecessors_start, successors_start + successors_start_size)
+                - delete predecessor and successor and the new_block and inser merged_block
 */
 int dealloc(int start_byte) {
     if (start_byte < 0 || start_byte > MEMORY_SIZE) {
@@ -423,6 +441,43 @@ int dealloc(int start_byte) {
     u_tree_sizes = put_block(u_tree_sizes, size, start);  
     u_tree_starts = put_block(u_tree_starts, start, size);
     a_tree_starts = delete_block(a_tree_starts, start, size);  
+    // get inorder predecessor and successor from the newly created unallocated block
+    Node** result = malloc(sizeof(Node*) * 2);
+    get_succesor_predecessor(u_tree_starts, start, result);
+    Node* predecessor = *(result + 1); 
+    Node* successor = *(result + 0);
+    // compare them to the new block
+    // compare new_block with the previous free block
+    int merged_start = start;
+    int merged_size = size;
+    int is_merged = 0;
+    // check predecessor
+    if (predecessor != NULL && predecessor->key + predecessor->val == start) {
+        merged_start = predecessor->key;
+        merged_size += predecessor->val;
+        // remove predecessor
+        u_tree_starts = delete_block(u_tree_starts, predecessor->key, predecessor->val);
+        u_tree_sizes = delete_block(u_tree_sizes, predecessor->val, predecessor->key);
+        is_merged = 1;
+    }
+    print_tree(u_tree_starts);
+    // check successor
+    if (successor != NULL && start + size == successor->key) {
+        merged_size += successor->val;
+        // remove successor
+        u_tree_starts = delete_block(u_tree_starts, successor->key, successor->val);
+        u_tree_sizes = delete_block(u_tree_sizes, successor->val, successor->key);
+        is_merged = 1;
+    }
+    print_tree(u_tree_starts);
+    // insert merged node
+    if (is_merged == 1) {
+        u_tree_starts = put_block(u_tree_starts, merged_start, merged_size);
+        u_tree_sizes = put_block(u_tree_sizes, merged_size, merged_start);
+    }
+    print_tree(u_tree_starts);
+    // free result
+    free(result);
     return 0;
 }
 
@@ -432,4 +487,8 @@ void exit_program() {
     free_tree(u_tree_starts);
     free_tree(a_tree_starts);
     return;
+}
+
+void print_suc_pred(Node* successor, Node* predecessor, int start) {
+    printf("previous: %d, current: %d, next: %d\n", predecessor == NULL ? -1 : predecessor->key, start, successor == NULL ? -1 : successor->key);
 }
